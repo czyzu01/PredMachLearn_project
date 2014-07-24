@@ -1,0 +1,103 @@
+```{r global_options, include=FALSE}
+opts_chunk$set(fig.width=12, fig.height=8, echo=TRUE, warning=FALSE, message=FALSE);
+library(caret);
+library(ggplot2);
+```
+
+
+Do it correctly
+========================================================
+
+
+
+Exec summary
+## Exploration of data
+
+### Getting the data
+The data are aquired from: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv (training set) and from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv (testing set). Data are described here: http://groupware.les.inf.puc-rio.br/har
+
+```r
+if (file.exists("pml-training.rds")) {
+    pml_training<-readRDS("pml-training.rds");
+} else {
+    download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="pml-training.csv", method="curl");
+    pml_training<-read.csv("pml-training.csv");
+    saveRDS(pml_training, file="pml-training.rds");
+}
+
+if (file.exists("pml-testing.rds")) {
+    pml_testing<-readRDS("pml-testing.rds");
+} else {
+    download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="pml-testing.csv", method="curl");
+    pml_testing<-read.csv("pml-testing.csv");
+    saveRDS(pml_testing, file="pml-testing.rds");
+}
+
+```
+### Removal of not predicitve data
+
+```{r}
+drops <- c( "X","user_name","raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp","new_window","num_window")
+pml_training<-pml_training[,!(names(pml_training) %in% drops)]
+```
+
+### Classification
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+Read more: http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises#ixzz38Q6Fxj5v
+
+### Split training into train and test p=0.7
+
+```{r}
+inTrain <- createDataPartition(y=pml_training$classe,
+                              p=0.7, list=FALSE)
+training <- pml_training[inTrain,]
+testing <- pml_training[-inTrain,]
+```
+
+Pca as a selector of variables?
+
+
+library(mlbench)
+data(BostonHousing)
+d=BostonHousing[-4] # only numeric variables
+weights <- linear.correlation(medv~., d)
+print(weights)
+subset <- cutoff.k(weights, 3)
+f <- as.simple.formula(subset, "medv")
+print(f)
+weights <- rank.correlation(medv~., d)
+print(weights)
+subset <- cutoff.k(weights, 3)
+f <- as.simple.formula(subset, "medv")
+print(f)
+
+http://en.wikibooks.org/wiki/Data_Mining_Algorithms_In_R/Dimensionality_Reduction/Feature_Selection
+
+
+## Prediction models
+
+```{r}
+modelFit<-train(classe ~ ., data=training, method="rpart")
+modelFit
+
+pred <- predict(modelFit,testing); testing$predRight <- pred==testing$classe
+table(pred,testing$Species)
+``
+
+Rpart
+Rf, proxymity=True
+Error types
+Graph of visualization (with conf, levels?)
+Cross validation
+
+```{r}
+summary(cars)
+```
+
+You can also embed plots, for example:
+
+```{r fig.width=7, fig.height=6}
+plot(cars)
+```
+
