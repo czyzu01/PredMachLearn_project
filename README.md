@@ -37,3 +37,8 @@ Reproducibility
 --------------
 
 Due to security concerns with the exchange of R code, your code will not be run during the evaluation by your classmates. Please be sure that if they download the repo, they will be able to view the compiled HTML version of your analysis. 
+
+
+Assignment criteria
+=====================
+* Do the authors describe what they expect the out of sample error to be and estimate the error appropriately with cross-validation?
