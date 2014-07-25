@@ -11,6 +11,8 @@ Do it correctly
 
 
 Exec summary
+
+
 ## Exploration of data
 
 ### Getting the data
@@ -47,6 +49,8 @@ Six young health participants were asked to perform one set of 10 repetitions of
 Read more: http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises#ixzz38Q6Fxj5v
 
 ### Split training into train and test p=0.7
+
+train(method = 'rf', trControl = trainControl(method='cv'))
 
 ```{r}
 inTrain <- createDataPartition(y=pml_training$classe,
