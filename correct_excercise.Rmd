@@ -58,19 +58,6 @@ testing <- pml_training[-inTrain,]
 Pca as a selector of variables?
 
 
-library(mlbench)
-data(BostonHousing)
-d=BostonHousing[-4] # only numeric variables
-weights <- linear.correlation(medv~., d)
-print(weights)
-subset <- cutoff.k(weights, 3)
-f <- as.simple.formula(subset, "medv")
-print(f)
-weights <- rank.correlation(medv~., d)
-print(weights)
-subset <- cutoff.k(weights, 3)
-f <- as.simple.formula(subset, "medv")
-print(f)
 
 http://en.wikibooks.org/wiki/Data_Mining_Algorithms_In_R/Dimensionality_Reduction/Feature_Selection
 
