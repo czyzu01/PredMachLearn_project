@@ -1,9 +1,8 @@
 ```{r global_options, include=FALSE}
 opts_chunk$set(fig.width=12, fig.height=8, echo=TRUE, warning=FALSE, message=FALSE);
-library(caret);
-library(ggplot2);
 ```
-
+https://github.com/dmaust/DataScience-ML-Project
+https://github.com/SweeRoty/pml/blob/master/project.md
 
 Do it correctly
 ========================================================
@@ -11,19 +10,22 @@ Do it correctly
 
 
 Exec summary
-
+?
 
 ## Exploration of data
 
 ### Getting the data
 The data are aquired from: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv (training set) and from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv (testing set). Data are described here: http://groupware.les.inf.puc-rio.br/har
 
-```r
+```{r}
+library(ggplot2);
+library(caret);
+
 if (file.exists("pml-training.rds")) {
     pml_training<-readRDS("pml-training.rds");
 } else {
     download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="pml-training.csv", method="curl");
-    pml_training<-read.csv("pml-training.csv");
+    pml_training<-read.csv("pml-training.csv", stringsAsFactors=FALSE, na.strings = c("NA", "#DIV/0!"));
     saveRDS(pml_training, file="pml-training.rds");
 }
 
@@ -31,7 +33,7 @@ if (file.exists("pml-testing.rds")) {
     pml_testing<-readRDS("pml-testing.rds");
 } else {
     download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="pml-testing.csv", method="curl");
-    pml_testing<-read.csv("pml-testing.csv");
+    pml_testing<-read.csv("pml-testing.csv", stringsAsFactors=FALSE, na.strings = c("NA", "#DIV/0!"));
     saveRDS(pml_testing, file="pml-testing.rds");
 }
 
@@ -39,8 +41,36 @@ if (file.exists("pml-testing.rds")) {
 ### Removal of not predicitve data
 
 ```{r}
-drops <- c( "X","user_name","raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp","new_window","num_window")
-pml_training<-pml_training[,!(names(pml_training) %in% drops)]
+set.seed(8888)
+trainingIndex <- createDataPartition(pml_training$classe, list=FALSE, p=.7)
+training = pml_training[trainingIndex,]
+testing = pml_training[-trainingIndex,]
+```
+
+Remove indicators with near zero variance.
+
+```{r}
+nzv <- nearZeroVar(training)
+
+training <- training[-nzv]
+testing <- testing[-nzv]
+pml_testing <- pml_testing[-nzv]
+```
+
+```{r}
+num_features_idx = which(lapply(training,class) %in% c('numeric')  )
+```
+
+```{r}
+preModel <- preProcess(training[,num_features_idx], method=c('knnImpute'))
+
+ptraining <- cbind(training$classe, predict(preModel, training[,num_features_idx]))
+ptesting <- cbind(testing$classe, predict(preModel, testing[,num_features_idx]))
+prtesting <- predict(preModel, pml_testing[,num_features_idx])
+
+#Fixing names
+names(ptraining)[1] <- 'classe'
+names(ptesting)[1] <- 'classe'
 ```
 
 ### Classification
@@ -48,19 +78,63 @@ Six young health participants were asked to perform one set of 10 repetitions of
 
 Read more: http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises#ixzz38Q6Fxj5v
 
-### Split training into train and test p=0.7
-
-train(method = 'rf', trControl = trainControl(method='cv'))
-
 ```{r}
-inTrain <- createDataPartition(y=pml_training$classe,
-                              p=0.7, list=FALSE)
-training <- pml_training[inTrain,]
-testing <- pml_training[-inTrain,]
+
+cvControl <- trainControl(method = "cv", number = 5)
+treefit <- train(classe ~ ., trControl = cvControl, method = "rpart", tuneLength = 5, data=ptraining);
+
+plot(treefit)
+
+if (file.exists("rForest.RData")) {
+    load("rForest.RData")
+} else {
+    rForest <- train(classe ~ ., trControl = cvControl, method = "rf", tuneLength = 5, data=ptraining);
+    save(rForest, file="rForest.RData")
+}
+plot(rForest)
+
 ```
 
-Pca as a selector of variables?
+From the two plots, we can see that, using 5-fold cross validation, the estimated out of sample error rate of the Tree model is above 40%, while that of the Random Forest model is less than 1%. So we choose the best Random Forest model as our final model and apply it to our generated testing data to see how well it generalizes.
 
+### Split training into train and test p=0.7
+
+
+
+```{r}
+model <- rForest$finalModel
+
+model  <- randomForest(classe ~ ., ptraining, ntree=500, mtry=32)
+
+pred.test <- predict(model, newdata = ptesting)
+confusionMatrix(pred.test, ptesting$classe)
+
+pred.train <- predict(model, newdata = ptraining)
+confusionMatrix(pred.train, ptraining$classe)
+
+answers <- predict(model, prtesting) 
+answers
+```
+
+Cross Validation
+We are able to measure the accuracy using our training set and our cross validation set. With the training set we can detect if our model has bias due to ridgity of our mode. With the cross validation set, we are able to determine if we have variance due to overfitting.
+
+In-sample accuracy
+```{r}
+training_pred <- predict(rf_model, ptraining) 
+print(confusionMatrix(training_pred, ptraining$classe))
+```
+The in sample accuracy is 100% which indicates, the model does not suffer from bias.
+
+Out-of-sample accuracy
+testing_pred <- predict(rf_model, ptesting) 
+Confusion Matrix:
+
+print(confusionMatrix(testing_pred, ptesting$classe))
+
+The cross validation accuracy is greater than 99%, which should be sufficient for predicting the twenty test observations. Based on the lower bound of the confidence interval we would expect to achieve a 98.7% classification accuracy on new data provided.
+
+One caveat exists that the new data must be collected and preprocessed in a manner consistent with the training data.
 
 
 http://en.wikibooks.org/wiki/Data_Mining_Algorithms_In_R/Dimensionality_Reduction/Feature_Selection
@@ -69,26 +143,11 @@ http://en.wikibooks.org/wiki/Data_Mining_Algorithms_In_R/Dimensionality_Reductio
 ## Prediction models
 
 ```{r}
-modelFit<-train(classe ~ ., data=training, method="rpart")
+modelFit<-train(classe ~ ., method = 'rf',  data=training)
 modelFit
+
 
 pred <- predict(modelFit,testing); testing$predRight <- pred==testing$classe
 table(pred,testing$Species)
-``
-
-Rpart
-Rf, proxymity=True
-Error types
-Graph of visualization (with conf, levels?)
-Cross validation
-
-```{r}
-summary(cars)
-```
-
-You can also embed plots, for example:
-
-```{r fig.width=7, fig.height=6}
-plot(cars)
 ```
 
