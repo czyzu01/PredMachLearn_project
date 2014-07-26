@@ -9,8 +9,8 @@ Do it correctly
 
 
 
-Exec summary
-?
+#Exec summary
+
 
 ## Exploration of data
 
@@ -47,7 +47,7 @@ training = pml_training[trainingIndex,]
 testing = pml_training[-trainingIndex,]
 ```
 
-Remove indicators with near zero variance.
+Remove indicators with near zero variance. Those variables will not have a great impact on generated model.
 
 ```{r}
 nzv <- nearZeroVar(training)
@@ -57,20 +57,22 @@ testing <- testing[-nzv]
 pml_testing <- pml_testing[-nzv]
 ```
 
+Then we calculate which columns are numeric (since only those can be processed by algorithms)
 ```{r}
 num_features_idx = which(lapply(training,class) %in% c('numeric')  )
 ```
 
+We fill missing values based od model from `knnImpute` method from `preProcess` function.
 ```{r}
 preModel <- preProcess(training[,num_features_idx], method=c('knnImpute'))
 
-ptraining <- cbind(training$classe, predict(preModel, training[,num_features_idx]))
-ptesting <- cbind(testing$classe, predict(preModel, testing[,num_features_idx]))
-prtesting <- predict(preModel, pml_testing[,num_features_idx])
+p_training <- cbind(training$classe, predict(preModel, training[,num_features_idx]))
+p_testing <- cbind(testing$classe, predict(preModel, testing[,num_features_idx]))
+pr_testing <- predict(preModel, pml_testing[,num_features_idx])
 
 #Fixing names
-names(ptraining)[1] <- 'classe'
-names(ptesting)[1] <- 'classe'
+names(p_training)[1] <- 'classe'
+names(p_testing)[1] <- 'classe'
 ```
 
 ### Classification
@@ -79,16 +81,17 @@ Six young health participants were asked to perform one set of 10 repetitions of
 Read more: http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises#ixzz38Q6Fxj5v
 
 ```{r}
-
 cvControl <- trainControl(method = "cv", number = 5)
-treefit <- train(classe ~ ., trControl = cvControl, method = "rpart", tuneLength = 5, data=ptraining);
+treefit <- train(classe ~ ., trControl = cvControl, method = "rpart", tuneLength = 5, data=p_training);
 
 plot(treefit)
 
+# Due to time constraints, result of processing random forest with crossValidation are skipped, final result
+# comes to model randomForest(classe ~ ., mtry=46, n=500)
 if (file.exists("rForest.RData")) {
     load("rForest.RData")
 } else {
-    rForest <- train(classe ~ ., trControl = cvControl, method = "rf", tuneLength = 5, data=ptraining);
+    rForest <- train(classe ~ ., trControl = cvControl, method = "rf", tuneLength = 5, data=p_training);
     save(rForest, file="rForest.RData")
 }
 plot(rForest)
@@ -97,57 +100,36 @@ plot(rForest)
 
 From the two plots, we can see that, using 5-fold cross validation, the estimated out of sample error rate of the Tree model is above 40%, while that of the Random Forest model is less than 1%. So we choose the best Random Forest model as our final model and apply it to our generated testing data to see how well it generalizes.
 
-### Split training into train and test p=0.7
-
-
+### Final model
 
 ```{r}
-model <- rForest$finalModel
-
-model  <- randomForest(classe ~ ., ptraining, ntree=500, mtry=32)
-
-pred.test <- predict(model, newdata = ptesting)
-confusionMatrix(pred.test, ptesting$classe)
-
-pred.train <- predict(model, newdata = ptraining)
-confusionMatrix(pred.train, ptraining$classe)
-
-answers <- predict(model, prtesting) 
-answers
+# model <- rForest$finalModel
+library(randomForest)
+model  <- randomForest(classe ~ ., p_training, ntree=500, mtry=46)
+summary(model)
 ```
 
-Cross Validation
-We are able to measure the accuracy using our training set and our cross validation set. With the training set we can detect if our model has bias due to ridgity of our mode. With the cross validation set, we are able to determine if we have variance due to overfitting.
+# Cross Validation
+To measure the accuracy  training set and our cross validation set will be used. With the training set we can detect if our model has bias due to ridgity of model. With the cross validation set, determination if of variance due to overfitting can be detected.
 
-In-sample accuracy
+##In-sample accuracy
 ```{r}
-training_pred <- predict(rf_model, ptraining) 
-print(confusionMatrix(training_pred, ptraining$classe))
+pred.train <- predict(model, newdata = p_training)
+confusionMatrix(pred.train, p_training$classe)
 ```
 The in sample accuracy is 100% which indicates, the model does not suffer from bias.
 
-Out-of-sample accuracy
-testing_pred <- predict(rf_model, ptesting) 
-Confusion Matrix:
-
-print(confusionMatrix(testing_pred, ptesting$classe))
-
+## Out-of-sample accuracy
+```{r}
+pred.test <- predict(model, newdata = p_testing)
+confusionMatrix(pred.test, p_testing$classe)
+```
 The cross validation accuracy is greater than 99%, which should be sufficient for predicting the twenty test observations. Based on the lower bound of the confidence interval we would expect to achieve a 98.7% classification accuracy on new data provided.
 
-One caveat exists that the new data must be collected and preprocessed in a manner consistent with the training data.
 
-
-http://en.wikibooks.org/wiki/Data_Mining_Algorithms_In_R/Dimensionality_Reduction/Feature_Selection
-
-
-## Prediction models
-
+## Answers to final testing model
 ```{r}
-modelFit<-train(classe ~ ., method = 'rf',  data=training)
-modelFit
-
-
-pred <- predict(modelFit,testing); testing$predRight <- pred==testing$classe
-table(pred,testing$Species)
+answers <- predict(model, pr_testing) 
+print(answers)
 ```
 
