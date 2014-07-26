@@ -5,8 +5,13 @@ Do it correctly
 
 
 
+<<<<<<< HEAD
 ## Introduction
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+=======
+#Exec summary
+
+>>>>>>> 3c538e9c87c676219c6ba54e8f5b26ed29740e88
 
 ## Exploration of data
 
@@ -43,8 +48,11 @@ training = pml_training[trainingIndex,]
 testing = pml_training[-trainingIndex,]
 ```
 
+<<<<<<< HEAD
 ### Removal of non predicitve data
 
+=======
+>>>>>>> 3c538e9c87c676219c6ba54e8f5b26ed29740e88
 Remove indicators with near zero variance. Those variables will not have a great impact on generated model.
 
 
@@ -226,6 +234,7 @@ confusionMatrix(pred.test, p_testing$classe)
 ```
 The cross validation accuracy is greater than 99%, which should be sufficient for predicting the twenty test observations. Based on the lower bound of the confidence interval we would expect to achieve a 98.7% classification accuracy on new data provided.
 
+<<<<<<< HEAD
 
 ## Answers to final testing model
 
@@ -243,6 +252,21 @@ print(answers)
 <!--
 https://github.com/dmaust/DataScience-ML-Project
 https://github.com/SweeRoty/pml/blob/master/project.md
+=======
+
+## Answers to final testing model
+
+```r
+answers <- predict(model, pr_testing) 
+print(answers)
+```
+
+```
+##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
+##  B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
+## Levels: A B C D E
+```
+>>>>>>> 3c538e9c87c676219c6ba54e8f5b26ed29740e88
 
 pml_write_files = function(x){
      n = length(x)
