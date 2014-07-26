@@ -1,14 +1,12 @@
 
-https://github.com/dmaust/DataScience-ML-Project
-https://github.com/SweeRoty/pml/blob/master/project.md
 
 Do it correctly
 ========================================================
 
 
 
-Exec summary
-?
+## Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
 
 ## Exploration of data
 
@@ -36,8 +34,7 @@ if (file.exists("pml-testing.rds")) {
     saveRDS(pml_testing, file="pml-testing.rds");
 }
 ```
-### Removal of not predicitve data
-
+### Creation of a set
 
 ```r
 set.seed(8888)
@@ -46,7 +43,9 @@ training = pml_training[trainingIndex,]
 testing = pml_training[-trainingIndex,]
 ```
 
-Remove indicators with near zero variance.
+### Removal of non predicitve data
+
+Remove indicators with near zero variance. Those variables will not have a great impact on generated model.
 
 
 ```r
@@ -57,33 +56,34 @@ testing <- testing[-nzv]
 pml_testing <- pml_testing[-nzv]
 ```
 
+Then we calculate which columns are numeric (since only those can be processed by algorithms)
 
 ```r
 num_features_idx = which(lapply(training,class) %in% c('numeric')  )
 ```
 
+We fill missing values based od model from `knnImpute` method from `preProcess` function.
 
 ```r
 preModel <- preProcess(training[,num_features_idx], method=c('knnImpute'))
 
-ptraining <- cbind(training$classe, predict(preModel, training[,num_features_idx]))
-ptesting <- cbind(testing$classe, predict(preModel, testing[,num_features_idx]))
-prtesting <- predict(preModel, pml_testing[,num_features_idx])
+p_training <- cbind(training$classe, predict(preModel, training[,num_features_idx]))
+p_testing <- cbind(testing$classe, predict(preModel, testing[,num_features_idx]))
+pr_testing <- predict(preModel, pml_testing[,num_features_idx])
 
 #Fixing names
-names(ptraining)[1] <- 'classe'
-names(ptesting)[1] <- 'classe'
+names(p_training)[1] <- 'classe'
+names(p_testing)[1] <- 'classe'
 ```
 
 ### Classification
-Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
-
 Read more: http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises#ixzz38Q6Fxj5v
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
 
 
 ```r
 cvControl <- trainControl(method = "cv", number = 5)
-treefit <- train(classe ~ ., trControl = cvControl, method = "rpart", tuneLength = 5, data=ptraining);
+treefit <- train(classe ~ ., trControl = cvControl, method = "rpart", tuneLength = 5, data=p_training);
 
 plot(treefit)
 ```
@@ -91,10 +91,12 @@ plot(treefit)
 ![plot of chunk unnamed-chunk-6](figure/unnamed-chunk-61.png) 
 
 ```r
+# Due to time constraints, result of processing random forest with crossValidation are skipped, final result
+# comes to model randomForest(classe ~ ., mtry=46, n=500)
 if (file.exists("rForest.RData")) {
     load("rForest.RData")
 } else {
-    rForest <- train(classe ~ ., trControl = cvControl, method = "rf", tuneLength = 5, data=ptraining);
+    rForest <- train(classe ~ ., trControl = cvControl, method = "rf", tuneLength = 5, data=p_training);
     save(rForest, file="rForest.RData")
 }
 plot(rForest)
@@ -104,135 +106,150 @@ plot(rForest)
 
 From the two plots, we can see that, using 5-fold cross validation, the estimated out of sample error rate of the Tree model is above 40%, while that of the Random Forest model is less than 1%. So we choose the best Random Forest model as our final model and apply it to our generated testing data to see how well it generalizes.
 
-### Split training into train and test p=0.7
-
-
+### Final model
 
 
 ```r
-model <- rForest$finalModel
-pred.test <- predict(model, newdata = ptesting)
+# model <- rForest$finalModel
+library(randomForest)
+model  <- randomForest(classe ~ ., p_training, ntree=500, mtry=46)
+summary(model)
 ```
 
 ```
-## Error: no applicable method for 'predict' applied to an object of class
-## "randomForest"
+##                 Length Class  Mode     
+## call                5  -none- call     
+## type                1  -none- character
+## predicted       13737  factor numeric  
+## err.rate         3000  -none- numeric  
+## confusion          30  -none- numeric  
+## votes           68685  matrix numeric  
+## oob.times       13737  -none- numeric  
+## classes             5  -none- character
+## importance         90  -none- numeric  
+## importanceSD        0  -none- NULL     
+## localImportance     0  -none- NULL     
+## proximity           0  -none- NULL     
+## ntree               1  -none- numeric  
+## mtry                1  -none- numeric  
+## forest             14  -none- list     
+## y               13737  factor numeric  
+## test                0  -none- NULL     
+## inbag               0  -none- NULL     
+## terms               3  terms  call
 ```
 
-```r
-confusionMatrix(pred.test, ptesting$classe)
-```
+# Cross Validation
+To measure the accuracy  training set and our cross validation set will be used. With the training set we can detect if our model has bias due to ridgity of model. With the cross validation set, determination if of variance due to overfitting can be detected.
 
-```
-## Error: object 'pred.test' not found
-```
-
-```r
-pred.train <- predict(model, newdata = ptraining)
-```
-
-```
-## Error: no applicable method for 'predict' applied to an object of class
-## "randomForest"
-```
-
-```r
-confusionMatrix(pred.train, ptraining$classe)
-```
-
-```
-## Error: object 'pred.train' not found
-```
-
-```r
-answers <- predict(model, prtesting) 
-```
-
-```
-## Error: no applicable method for 'predict' applied to an object of class
-## "randomForest"
-```
+##In-sample accuracy
 
 ```r
-answers
+pred.train <- predict(model, newdata = p_training)
+confusionMatrix(pred.train, p_training$classe)
 ```
 
 ```
-## Error: object 'answers' not found
-```
-
-Cross Validation
-We are able to measure the accuracy using our training set and our cross validation set. With the training set we can detect if our model has bias due to ridgity of our mode. With the cross validation set, we are able to determine if we have variance due to overfitting.
-
-In-sample accuracy
-
-```r
-training_pred <- predict(rf_model, ptraining) 
-```
-
-```
-## Error: object 'rf_model' not found
-```
-
-```r
-print(confusionMatrix(training_pred, ptraining$classe))
-```
-
-```
-## Error: object 'training_pred' not found
+## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 3906    0    0    0    0
+##          B    0 2658    0    0    0
+##          C    0    0 2396    0    0
+##          D    0    0    0 2252    0
+##          E    0    0    0    0 2525
+## 
+## Overall Statistics
+##                                 
+##                Accuracy : 1     
+##                  95% CI : (1, 1)
+##     No Information Rate : 0.284 
+##     P-Value [Acc > NIR] : <2e-16
+##                                 
+##                   Kappa : 1     
+##  Mcnemar's Test P-Value : NA    
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             1.000    1.000    1.000    1.000    1.000
+## Specificity             1.000    1.000    1.000    1.000    1.000
+## Pos Pred Value          1.000    1.000    1.000    1.000    1.000
+## Neg Pred Value          1.000    1.000    1.000    1.000    1.000
+## Prevalence              0.284    0.193    0.174    0.164    0.184
+## Detection Rate          0.284    0.193    0.174    0.164    0.184
+## Detection Prevalence    0.284    0.193    0.174    0.164    0.184
+## Balanced Accuracy       1.000    1.000    1.000    1.000    1.000
 ```
 The in sample accuracy is 100% which indicates, the model does not suffer from bias.
 
-Out-of-sample accuracy
-testing_pred <- predict(rf_model, ptesting) 
-Confusion Matrix:
+## Out-of-sample accuracy
 
-print(confusionMatrix(testing_pred, ptesting$classe))
+```r
+pred.test <- predict(model, newdata = p_testing)
+confusionMatrix(pred.test, p_testing$classe)
+```
 
+```
+## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1669   11    0    0    0
+##          B    3 1121   12    0    2
+##          C    1    7 1010    5    3
+##          D    1    0    4  956    1
+##          E    0    0    0    3 1076
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.991         
+##                  95% CI : (0.988, 0.993)
+##     No Information Rate : 0.284         
+##     P-Value [Acc > NIR] : <2e-16        
+##                                         
+##                   Kappa : 0.989         
+##  Mcnemar's Test P-Value : NA            
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             0.997    0.984    0.984    0.992    0.994
+## Specificity             0.997    0.996    0.997    0.999    0.999
+## Pos Pred Value          0.993    0.985    0.984    0.994    0.997
+## Neg Pred Value          0.999    0.996    0.997    0.998    0.999
+## Prevalence              0.284    0.194    0.174    0.164    0.184
+## Detection Rate          0.284    0.190    0.172    0.162    0.183
+## Detection Prevalence    0.285    0.193    0.174    0.163    0.183
+## Balanced Accuracy       0.997    0.990    0.991    0.995    0.997
+```
 The cross validation accuracy is greater than 99%, which should be sufficient for predicting the twenty test observations. Based on the lower bound of the confidence interval we would expect to achieve a 98.7% classification accuracy on new data provided.
 
-One caveat exists that the new data must be collected and preprocessed in a manner consistent with the training data.
 
-
-http://en.wikibooks.org/wiki/Data_Mining_Algorithms_In_R/Dimensionality_Reduction/Feature_Selection
-
-
-## Prediction models
-
+## Answers to final testing model
 
 ```r
-modelFit<-train(classe ~ ., method = 'rf',  data=training)
+answers <- predict(model, pr_testing) 
+print(answers)
 ```
 
 ```
-## Error: final tuning parameters could not be determined
+##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
+##  B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
+## Levels: A B C D E
 ```
 
-```r
-modelFit
-```
+<!--
+https://github.com/dmaust/DataScience-ML-Project
+https://github.com/SweeRoty/pml/blob/master/project.md
 
-```
-## Error: object 'modelFit' not found
-```
-
-```r
-pred <- predict(modelFit,testing); testing$predRight <- pred==testing$classe
-```
-
-```
-## Error: object 'modelFit' not found
-```
-
-```
-## Error: object 'pred' not found
-```
-
-```r
-table(pred,testing$Species)
-```
-
-```
-## Error: object 'pred' not found
-```
-
+pml_write_files = function(x){
+     n = length(x)
+     for(i in 1:n){
+         filename = paste0("problem_id_",i,".txt")
+         write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+     }
+ }
+pml_write_files(answers)
+-->
