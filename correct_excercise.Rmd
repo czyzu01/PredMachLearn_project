@@ -43,11 +43,6 @@ training = pml_training[trainingIndex,]
 testing = pml_training[-trainingIndex,]
 ```
 
-<<<<<<< HEAD
-### Removal of non predicitve data
-
-=======
->>>>>>> 3c538e9c87c676219c6ba54e8f5b26ed29740e88
 Remove indicators with near zero variance. Those variables will not have a great impact on generated model.
 
 ```{r}
